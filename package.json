@@ -1,0 +1,25 @@
+{
+  "name": "ai-image-generator",
+  "version": "1.0.0",
+  "description": "AI-powered image generator with FLUX Pro and OpenAI",
+  "main": "api-server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node api-server.js",
+    "dev": "node api-server.js"
+  },
+  "keywords": [
+    "ai",
+    "image-generation",
+    "flux",
+    "openai"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
+  }
+}

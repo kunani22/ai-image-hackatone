@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Summer Landscape Generator</title>
+    <style>
+        @font-face {
+            font-family: 'Recoleta Black';
+            src: url('recoleta-black.otf') format('opentype');
+            font-weight: 900;
+            font-style: normal;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #fff;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            color: #000;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .container {
+            display: none;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            background: linear-gradient(45deg, #ffd89b, #19547b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        .generate-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ffa726);
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            color: white;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .generate-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+            margin-top: 2rem;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0,0,0,0.3);
+            border-radius: 50%;
+            border-top: 4px solid #000;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .image-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            z-index: 1000;
+            background: #fff;
+        }
+
+        .generated-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+
+        .generated-image.loaded {
+            opacity: 1;
+        }
+
+        .image-title {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1001;
+            text-align: center;
+            color: white;
+            font-family: 'Recoleta Black', serif;
+            font-size: 8rem;
+            font-weight: 900;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            max-width: 90vw;
+            line-height: 1.1;
+        }
+
+        .editable-title {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1001;
+            text-align: center;
+            color: #000;
+            font-family: 'Recoleta Black', serif;
+            font-size: 8rem;
+            font-weight: 900;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            max-width: 90vw;
+            line-height: 1.1;
+            background: transparent;
+            border: none;
+            outline: none;
+            resize: none;
+            overflow: hidden;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .editable-title::placeholder {
+            color: inherit;
+            opacity: 0.7;
+        }
+        
+        .editable-title:focus {
+            cursor: text;
+        }
+
+        .image-title {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1001;
+            text-align: center;
+            color: white;
+            font-family: 'Recoleta Black', serif;
+            font-size: 8rem;
+            font-weight: 900;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            max-width: 90vw;
+            line-height: 1.1;
+            transition: color 0.3s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .image-title:hover {
+            opacity: 0.8;
+        }
+
+        .prompt-info-btn {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            color: white;
+            font-family: 'Recoleta Black', serif;
+            font-size: 22px;
+            font-weight: 900;
+            cursor: pointer;
+            display: none;
+            z-index: 1003;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            align-items: center;
+            justify-content: center;
+            text-transform: lowercase;
+        }
+        
+        .settings-btn {
+            display: none; /* API 키가 서버에서 관리되므로 설정 UI 숨김 */
+        }
+
+        .prompt-info-btn:hover {
+            background: rgba(0, 0, 0, 0.8);
+            transform: scale(1.1);
+        }
+        
+        .settings-btn:hover {
+            background: transparent;
+            color: transparent;
+            opacity: 0;
+        }
+
+        .instructions {
+            position: absolute;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(0, 0, 0, 0.6);
+            font-size: 1.2rem;
+            text-align: center;
+            z-index: 1001;
+            transition: color 0.3s ease;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1002;
+            color: #000;
+            backdrop-filter: blur(10px);
+        }
+
+        .generated-image.loading {
+            filter: blur(5px);
+            transition: filter 0.3s ease;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 2rem;
+            padding: 10px 15px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 1001;
+        }
+
+        .close-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.1);
+        }
+
+        .error-message {
+            background: rgba(255,82,82,0.2);
+            border: 1px solid rgba(255,82,82,0.5);
+            color: #ff5252;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            display: none;
+            backdrop-filter: blur(10px);
+        }
+
+        .info {
+            margin-top: 2rem;
+            opacity: 0.7;
+            font-size: 0.9rem;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        .prompt-display {
+            background: rgba(255,255,255,0.1);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .floating-particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .particle {
+            position: absolute;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-50px) rotate(180deg); }
+        }
+
+        @media (max-width: 768px) {
+            .image-title, .editable-title {
+                font-size: 5rem;
+                letter-spacing: 0.5px;
+            }
+            
+            .instructions {
+                font-size: 1rem;
+                bottom: 30px;
+            }
+        }
+
+        .prompt-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            z-index: 1004;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 80px;
+            backdrop-filter: blur(5px);
+        }
+
+        .prompt-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 80vw;
+            max-height: 70vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .prompt-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .prompt-close:hover {
+            background: #f0f0f0;
+            color: #000;
+        }
+
+        .prompt-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .prompt-text {
+            font-size: 1.1rem;
+            line-height: 1.6;
+            color: #555;
+            white-space: pre-wrap;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .user-prompt {
+            color: #2563eb;
+            font-weight: 600;
+        }
+
+        .system-prompt {
+            color: #666;
+        }
+
+        @media (max-width: 768px) {
+            .prompt-content {
+                max-width: 95vw;
+                padding: 20px;
+            }
+            
+            .prompt-title {
+                font-size: 1.4rem;
+            }
+            
+            .prompt-text {
+                font-size: 1rem;
+            }
+            
+            .prompt-info-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+            }
+        }
+
+        .settings-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            z-index: 1005;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .settings-content {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90vw;
+            max-height: 70vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .settings-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .settings-group {
+            margin-bottom: 20px;
+        }
+
+        .settings-label {
+            display: block;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #555;
+            margin-bottom: 8px;
+        }
+
+        .settings-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: monospace;
+            transition: border-color 0.3s ease;
+        }
+
+        .settings-input:focus {
+            outline: none;
+            border-color: #03C75A;
+            box-shadow: 0 0 0 3px rgba(3, 199, 90, 0.1);
+        }
+
+        .settings-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        .settings-btn-action {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .settings-btn-save {
+            background: #03C75A;
+            color: white;
+        }
+
+        .settings-btn-save:hover {
+            background: #02b050;
+        }
+
+        .settings-btn-cancel {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .settings-btn-cancel:hover {
+            background: #e0e0e0;
+        }
+
+        .settings-note {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+            line-height: 1.4;
+        }
+
+        @media (max-width: 480px) {
+            .image-title, .editable-title {
+                font-size: 3.5rem;
+                letter-spacing: 0px;
+            }
+            
+            .instructions {
+                font-size: 0.9rem;
+                bottom: 20px;
+            }
+            
+            .settings-content {
+                padding: 20px;
+                width: 95vw;
+            }
+            
+            .settings-title {
+                font-size: 1.4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="floating-particles" id="particles"></div>
+    
+    <div class="container">
+        <h1>Summer Landscape</h1>
+        <p class="subtitle">AI-Powered Beautiful Scenery Generator</p>
+        
+        <button class="generate-btn" id="generateBtn">
+            Generate Summer Landscape
+        </button>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Creating your beautiful summer landscape...</p>
+        </div>
+        
+        <div class="error-message" id="errorMessage"></div>
+        
+        <div class="prompt-display">
+            <strong>Prompt:</strong> "A breathtaking summer landscape with rolling green hills, vibrant wildflowers, crystal clear blue sky with fluffy white clouds, golden sunlight filtering through trees, peaceful meadow, photorealistic, high quality, detailed"
+        </div>
+        
+        <div class="info">
+            <p>Click the button above to generate a stunning AI-created summer landscape using FLUX Pro v1.1 Ultra model. The generated image will be displayed in fullscreen for the best viewing experience.</p>
+        </div>
+    </div>
+    
+    <div class="image-container" id="imageContainer">
+        <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+            <div class="spinner"></div>
+            <p style="margin-top: 20px; font-size: 1.2rem; color: #000;" id="loadingText">Creating your image...</p>
+        </div>
+        <img class="generated-image" id="generatedImage" alt="Generated Landscape" style="display: none;">
+        <div class="image-title" id="imageTitle" style="display: none;"></div>
+        <textarea class="editable-title" id="editableTitle" placeholder="">Fill the browser</textarea>
+        <div class="instructions">Type your image description above and press Enter to generate</div>
+        
+        <!-- 프롬프트 정보 버튼 -->
+        <button class="prompt-info-btn" id="promptInfoBtn" style="display: none;">i</button>
+        
+        <!-- 설정 버튼 -->
+        <button class="settings-btn" id="settingsBtn">⚙</button>
+    </div>
+
+    <!-- 프롬프트 모달 -->
+    <div class="prompt-modal" id="promptModal">
+        <div class="prompt-content">
+            <button class="prompt-close" id="promptClose">×</button>
+            <div class="prompt-title">Full Prompt Used for Generation</div>
+            <div class="prompt-text" id="promptText"></div>
+        </div>
+    </div>
+
+    <!-- 설정 모달 -->
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-content">
+            <div class="settings-title">API Settings</div>
+            
+            <div class="settings-group">
+                <label class="settings-label" for="falApiKey">fal.ai API Key</label>
+                <input type="password" class="settings-input" id="falApiKey" placeholder="Enter your fal.ai API key">
+                <div class="settings-note">Your fal.ai API key for FLUX image generation. Get it from <a href="https://fal.ai" target="_blank">fal.ai</a></div>
+            </div>
+            
+            <div class="settings-group">
+                <label class="settings-label" for="openaiApiKey">OpenAI API Key</label>
+                <input type="password" class="settings-input" id="openaiApiKey" placeholder="Enter your OpenAI API key">
+                <div class="settings-note">Your OpenAI API key for prompt enhancement. Get it from <a href="https://platform.openai.com" target="_blank">OpenAI Platform</a></div>
+            </div>
+            
+            <div class="settings-buttons">
+                <button class="settings-btn-action settings-btn-cancel" id="settingsCancel">Cancel</button>
+                <button class="settings-btn-action settings-btn-save" id="settingsSave">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API가 로컬 서버를 통해 처리됨 (API 키 숨김)
+        const USE_LOCAL_API = true; // 프로덕션에서는 true, 개발시 false로 변경 가능
+        
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const imageContainer = document.getElementById('imageContainer');
+        const generatedImage = document.getElementById('generatedImage');
+        const imageTitle = document.getElementById('imageTitle');
+        const editableTitle = document.getElementById('editableTitle');
+        const loadingText = document.getElementById('loadingText');
+        const instructions = document.querySelector('.instructions');
+        const promptInfoBtn = document.getElementById('promptInfoBtn');
+        const promptModal = document.getElementById('promptModal');
+        const promptClose = document.getElementById('promptClose');
+        const promptText = document.getElementById('promptText');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const settingsModal = document.getElementById('settingsModal');
+        const settingsCancel = document.getElementById('settingsCancel');
+        const settingsSave = document.getElementById('settingsSave');
+        const falApiKeyInput = document.getElementById('falApiKey');
+        const openaiApiKeyInput = document.getElementById('openaiApiKey');
+        
+        // 현재 생성된 이미지의 전체 프롬프트 저장
+        let currentFullPrompt = '';
+        let originalPrompt = ''; // 이미지 생성 시 사용된 원본 프롬프트
+        
+        // OpenAI를 사용하여 프롬프트를 창의적으로 확장하는 함수
+        async function enhancePromptWithAI(userInput) {
+            try {
+                console.log('🎯 Transforming input into cinematic masterpiece...');
+                
+                // 전문가급 프롬프트 증강을 위해 서버로 전송
+                const response = await fetch('/api/enhance-prompt', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        userInput
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const enhancedPrompt = data.enhancedPrompt;
+                
+                console.log('Original:', userInput);
+                console.log('Enhanced:', enhancedPrompt);
+                
+                return enhancedPrompt;
+                
+            } catch (error) {
+                console.error('Error enhancing prompt:', error);
+                // 폴백: 기본 키워드만 추가
+                return `${userInput}, high quality, detailed, beautiful composition`;
+            }
+        }
+        
+        // 이미지의 평균 밝기를 계산하여 텍스트 색상 결정
+        function getOptimalTextColor(imageElement) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = 100; // 샘플링을 위해 작은 크기 사용
+            canvas.height = 100;
+            
+            ctx.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
+            
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            let r = 0, g = 0, b = 0;
+            let pixelCount = 0;
+            
+            // 중앙 영역의 픽셀들만 샘플링 (텍스트가 위치할 영역)
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const sampleRadius = 30;
+            
+            for (let y = centerY - sampleRadius; y < centerY + sampleRadius; y++) {
+                for (let x = centerX - sampleRadius; x < centerX + sampleRadius; x++) {
+                    if (x >= 0 && x < canvas.width && y >= 0 && y < canvas.height) {
+                        const index = (y * canvas.width + x) * 4;
+                        r += data[index];
+                        g += data[index + 1];
+                        b += data[index + 2];
+                        pixelCount++;
+                    }
+                }
+            }
+            
+            r = Math.floor(r / pixelCount);
+            g = Math.floor(g / pixelCount);
+            b = Math.floor(b / pixelCount);
+            
+            // 밝기 계산 (0-255)
+            const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+            
+            // 밝기에 따라 텍스트 색상 결정
+            return brightness > 128 ? '#000' : '#fff';
+        }
+        
+        // 텍스트 색상 업데이트
+        function updateTextColor(color) {
+            imageTitle.style.color = color;
+        }
+        
+        // Create floating particles
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            for (let i = 0; i < 20; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.top = Math.random() * 100 + '%';
+                particle.style.width = Math.random() * 4 + 2 + 'px';
+                particle.style.height = particle.style.width;
+                particle.style.animationDelay = Math.random() * 6 + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+        
+        async function generateImage(prompt) {
+            try {
+                // 편집 모드 숨기기
+                editableTitle.style.display = 'none';
+                instructions.style.display = 'none';
+                promptInfoBtn.style.display = 'none';
+                imageTitle.style.display = 'none';
+                
+                // 기존 이미지가 있으면 블러 처리, 없으면 흰 배경
+                if (generatedImage.style.display === 'block') {
+                    generatedImage.classList.add('loading');
+                    loadingOverlay.style.background = 'rgba(255, 255, 255, 0.3)';
+                } else {
+                    loadingOverlay.style.background = '#fff';
+                }
+                
+                loadingOverlay.style.display = 'flex';
+                loadingText.textContent = `Enhancing your prompt with AI...`;
+                
+                // OpenAI로 프롬프트 창의적 확장
+                const enhancedPrompt = await enhancePromptWithAI(prompt);
+                currentFullPrompt = enhancedPrompt;
+                
+                loadingText.textContent = `Creating "${prompt}"...`;
+                
+                // 로컬 API 서버를 통해 이미지 생성
+                const response = await fetch('/api/generate-image', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        prompt: enhancedPrompt
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.images && result.images.length > 0) {
+                    displayImage(result.images[0].url, prompt, enhancedPrompt);
+                } else {
+                    throw new Error('No image generated');
+                }
+                
+            } catch (error) {
+                console.error('Error generating image:', error);
+                // 에러 시 블러 제거
+                generatedImage.classList.remove('loading');
+                loadingOverlay.innerHTML = `
+                    <div style="text-align: center;">
+                        <h2 style="color: #ff5252; margin-bottom: 1rem;">이미지 생성 실패</h2>
+                        <p style="color: #ccc;">잠시 후 다시 시도해주세요.</p>
+                        <button onclick="location.reload()" style="margin-top: 1rem; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">다시 시도</button>
+                    </div>
+                `;
+            }
+        }
+        
+        function displayImage(imageUrl, prompt, enhancedPrompt) {
+            generatedImage.src = imageUrl;
+            generatedImage.onload = function() {
+                // 로딩 상태 해제
+                loadingOverlay.style.display = 'none';
+                generatedImage.classList.remove('loading');
+                generatedImage.style.display = 'block';
+                generatedImage.classList.add('loaded');
+                imageTitle.textContent = prompt.toUpperCase();
+                
+                // 확장된 프롬프트와 원본 프롬프트 저장
+                currentFullPrompt = enhancedPrompt;
+                originalPrompt = prompt;
+                
+                // 이미지가 완전히 로드된 후 텍스트 색상 계산
+                setTimeout(() => {
+                    const optimalColor = getOptimalTextColor(generatedImage);
+                    updateTextColor(optimalColor);
+                }, 100);
+                
+                imageTitle.style.display = 'block';
+                promptInfoBtn.style.display = 'flex';
+            };
+        }
+        
+        // Enter 키 이벤트 리스너
+        editableTitle.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const prompt = editableTitle.value.trim();
+                if (prompt) {
+                    generateImage(prompt);
+                }
+            }
+        });
+        
+        // 편집 모드로 전환하는 공통 함수
+        function switchToEditMode(currentText = null) {
+            // 현재 imageTitle의 색상을 저장
+            const currentColor = window.getComputedStyle(imageTitle).color;
+            
+            // 이미지는 그대로 두고 텍스트만 편집 모드로 전환
+            imageTitle.style.display = 'none';
+            editableTitle.style.display = 'block';
+            instructions.style.display = 'block';
+            
+            // 저장된 색상을 editableTitle에 적용
+            editableTitle.style.color = currentColor;
+            // instructions 색상도 같은 색상 계열로 설정 (투명도만 조정)
+            const isWhite = currentColor.includes('rgb(255, 255, 255)') || currentColor.includes('white');
+            instructions.style.color = isWhite ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+            
+            if (currentText) {
+                editableTitle.value = currentText;
+            }
+            editableTitle.focus();
+            editableTitle.style.height = 'auto';
+            editableTitle.style.height = editableTitle.scrollHeight + 'px';
+        }
+        
+        // 편집 모드에서 벗어나는 함수
+        function exitEditMode() {
+            editableTitle.style.display = 'none';
+            instructions.style.display = 'none';
+            imageTitle.style.display = 'block';
+            
+            // 원본 프롬프트로 되돌리기
+            if (originalPrompt) {
+                imageTitle.textContent = originalPrompt.toUpperCase();
+                editableTitle.value = originalPrompt;
+            }
+        }
+        
+        // 이미지 클릭 시 다시 편집 모드로
+        generatedImage.addEventListener('click', function() {
+            switchToEditMode();
+        });
+        
+        // 텍스트 클릭 시 편집 모드로 (기존 텍스트와 함께)
+        imageTitle.addEventListener('click', function(e) {
+            e.stopPropagation(); // 이벤트 버블링 방지
+            const currentText = originalPrompt || imageTitle.textContent.toLowerCase();
+            switchToEditMode(currentText);
+        });
+        
+        // 자동 높이 조절
+        editableTitle.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = this.scrollHeight + 'px';
+        });
+        
+        // 포커스 시 텍스트 클리어
+        editableTitle.addEventListener('focus', function() {
+            if (this.value === 'Fill the browser') {
+                this.value = '';
+            }
+        });
+        
+        // 포커스 해제 시 텍스트 복원
+        editableTitle.addEventListener('blur', function() {
+            if (this.value.trim() === '') {
+                this.value = 'Fill the browser';
+            }
+        });
+        
+        // 프롬프트 정보 버튼 클릭 이벤트
+        promptInfoBtn.addEventListener('click', function() {
+            const userPrompt = imageTitle.textContent.toLowerCase();
+            const aiEnhancedPart = currentFullPrompt.replace(userPrompt, '').replace(/^,\s*/, '');
+            
+            promptText.innerHTML = `<span class="user-prompt">${userPrompt}</span><span class="system-prompt">, ${aiEnhancedPart}</span>`;
+            promptModal.style.display = 'flex';
+        });
+        
+        // 모달 닫기 이벤트들
+        promptClose.addEventListener('click', function() {
+            promptModal.style.display = 'none';
+        });
+        
+        promptModal.addEventListener('click', function(e) {
+            if (e.target === promptModal) {
+                promptModal.style.display = 'none';
+            }
+        });
+        
+        // ESC 키로 모달 닫기
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (promptModal.style.display === 'flex') {
+                    promptModal.style.display = 'none';
+                }
+                if (settingsModal.style.display === 'flex') {
+                    closeSettings();
+                }
+            }
+        });
+        
+        // 텍스트 영역 외부 클릭 시 편집 모드 벗어나기
+        document.addEventListener('click', function(e) {
+            // 편집 모드가 활성화되어 있고, 이미지가 표시된 상태에서만 작동
+            if (editableTitle.style.display === 'block' && generatedImage.style.display === 'block') {
+                // 클릭된 요소가 편집 관련 요소가 아닌 경우
+                if (!editableTitle.contains(e.target) && 
+                    !instructions.contains(e.target) && 
+                    e.target !== editableTitle && 
+                    e.target !== instructions &&
+                    e.target !== imageTitle) { // imageTitle 클릭은 제외
+                    exitEditMode();
+                }
+            }
+        });
+        
+        // ESC 키로도 편집 모드 벗어나기
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && editableTitle.style.display === 'block' && generatedImage.style.display === 'block') {
+                exitEditMode();
+            }
+        });
+        
+        // 설정 관련 함수들
+        function openSettings() {
+            // 현재 저장된 API 키들을 입력 필드에 표시 (마스킹)
+            falApiKeyInput.value = FAL_API_KEY ? '•'.repeat(20) + FAL_API_KEY.slice(-10) : '';
+            openaiApiKeyInput.value = OPENAI_API_KEY ? '•'.repeat(20) + OPENAI_API_KEY.slice(-10) : '';
+            settingsModal.style.display = 'flex';
+        }
+        
+        function closeSettings() {
+            settingsModal.style.display = 'none';
+        }
+        
+        function saveSettings() {
+            // 새로운 키가 입력되었는지 확인 (마스킹되지 않은 값)
+            const newFalKey = falApiKeyInput.value.trim();
+            const newOpenaiKey = openaiApiKeyInput.value.trim();
+            
+            if (newFalKey && !newFalKey.startsWith('•')) {
+                FAL_API_KEY = newFalKey;
+                localStorage.setItem('fal_api_key', FAL_API_KEY);
+            }
+            
+            if (newOpenaiKey && !newOpenaiKey.startsWith('•')) {
+                OPENAI_API_KEY = newOpenaiKey;
+                localStorage.setItem('openai_api_key', OPENAI_API_KEY);
+            }
+            
+            closeSettings();
+            
+            // 성공 메시지 표시
+            const successMsg = document.createElement('div');
+            successMsg.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #03C75A;
+                color: white;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-weight: 600;
+                z-index: 9999;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            `;
+            successMsg.textContent = 'API Keys saved successfully!';
+            document.body.appendChild(successMsg);
+            
+            setTimeout(() => {
+                successMsg.remove();
+            }, 3000);
+        }
+        
+        // 설정 이벤트 리스너들
+        settingsBtn.addEventListener('click', openSettings);
+        settingsCancel.addEventListener('click', closeSettings);
+        settingsSave.addEventListener('click', saveSettings);
+        
+        settingsModal.addEventListener('click', function(e) {
+            if (e.target === settingsModal) {
+                closeSettings();
+            }
+        });
+        
+        // 입력 필드 포커스 시 기존 값 클리어 (새로운 키 입력을 위해)
+        falApiKeyInput.addEventListener('focus', function() {
+            if (this.value.startsWith('•')) {
+                this.value = '';
+            }
+        });
+        
+        openaiApiKeyInput.addEventListener('focus', function() {
+            if (this.value.startsWith('•')) {
+                this.value = '';
+            }
+        });
+        
+        // 초기 포커스
+        window.addEventListener('load', function() {
+            editableTitle.style.height = editableTitle.scrollHeight + 'px';
+        });
+        
+        console.log('Interactive Image Generator with Prompt Viewer loaded successfully!');
+    </script>
+</body>
+</html>
